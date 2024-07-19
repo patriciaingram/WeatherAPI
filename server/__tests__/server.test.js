@@ -1,6 +1,6 @@
 const request = require('supertest');
 const express = require('express');
-const app = require('./index'); // Your Express app
+const app = require('../index'); // Your Express app
 
 describe('GET /api/weather', () => {
     it('should return weather data for a valid city', async () => {

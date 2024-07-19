@@ -1,17 +1,72 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const path = require('path');
+const helmet = require('helmet'); // Added for security
+const session = require('express-session');
+const db = require('./database'); // Import the database file
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(express.json());
 app.use(cors());
+app.use(express.static(path.join(__dirname, 'public'), {
+    maxAge: '1d'  // Cache for one day
+}));
+
+// Use helmet to set security-related HTTP headers
+app.use(helmet({
+    contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "https://example.com"],
+            styleSrc: ["'self'", "https://example.com"],
+            imgSrc: ["'self'", "data:"],
+            connectSrc: ["'self'", "https://example.com"],
+            fontSrc: ["'self'", "https://example.com"],
+            objectSrc: ["'none'"]
+        }
+    },
+    referrerPolicy: { policy: 'same-origin' },
+    xContentTypeOptions: { nosniff: true }
+    
+    }));
+    app.use(session({
+        secret: 'your-secret-key', // Replace with a secure random string
+        resave: false,
+        saveUninitialized: true
+}));
 
 // Define route for the root path
+// Serve register.html
 app.get('/', (req, res) => {
-    res.send('Welcome to the Weather API');
+    if (req.session.user) {
+        res.redirect('/weather');
+    } else {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    }
+});
+
+// Serve register.html
+app.get('/register', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'register.html'));
+});
+
+
+// Serve login.html
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/weather', (req, res) => {
+    if (req.session.user) {
+        res.sendFile(path.join(__dirname, 'public', 'weather.html'));
+    } else {
+        res.redirect('/login');
+    }
 });
 
 // Fetch weather data from OpenWeatherMap API
@@ -21,50 +76,83 @@ app.get('/api/weather', async (req, res) => {
         return res.status(400).send('City is required');
     }
     try {
-        const apiKey = '08778517d5f65cbc7b5295a8d225fc11';
+        const apiKey = '08778517d5f65cbc7b5295a8d225fc11'; // Make sure to use your actual API key here
         const response = await axios.get(`http://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}`);
         res.json(response.data);
+
+        // Log the search query to the database without requiring authentication
+        // This line assumes you have a default user_id of 1
+        db.addSearchQuery(1, city)
+            .catch((err) => console.error('Error logging search:', err.message));
+
     } catch (error) {
         res.status(500).send('Error fetching weather data');
     }
 });
 
-const users = []; // This should be replaced with a real database in production
-const secretKey = 'your_secret_key';
-
 // Register route
-app.post('/api/register', (req, res) => {
+app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
-    const hashedPassword = bcrypt.hashSync(password, 8);
-    users.push({ username, password: hashedPassword });
-    res.status(201).send('User registered successfully');
+    if (!username || !password) {
+        return res.status(400).send('Username and password are required');
+    }
+
+    try {
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 8);
+
+        // Insert the new user into the database
+        db.createUser(username, hashedPassword)
+            .then((userId) => res.status(201).json({ id: userId }))
+            .catch((err) => {
+                console.error('Error registering user:', err.message);
+                res.status(500).send('Error registering user');
+            });
+
+    } catch (error) {
+        console.error('Error hashing password:', error.message);
+        res.status(500).send('Error hashing password');
+    }
 });
 
 // Login route
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-    const user = users.find(u => u.username === username);
-    if (!user || !bcrypt.compareSync(password, user.password)) {
-        return res.status(401).send('Invalid username or password');
+
+    // Check if username and password are provided
+    if (!username || !password) {
+        return res.status(400).send('Username and password are required');
     }
-    const token = jwt.sign({ username: user.username }, secretKey, { expiresIn: '1h' });
-    res.json({ token });
+    try {
+        const user = await db.getUserByUsername(username);
+        if (user && await bcrypt.compare(password, user.password)) {
+            req.session.user = { id: user.id, username: user.username };
+            res.status(200).send('Login successful');
+        } else {
+            res.status(401).send('Invalid username or password');
+        }
+    } catch (err) {
+        console.error('Error logging in:', err);
+        res.status(500).send('Error logging in');
+    }
 });
 
-// Middleware to verify JWT
-const verifyJWT = (req, res, next) => {
-    const token = req.headers['x-access-token'];
-    if (!token) return res.status(403).send('No token provided');
-    jwt.verify(token, secretKey, (err, decoded) => {
-        if (err) return res.status(500).send('Failed to authenticate token');
-        req.userId = decoded.id;
-        next();
+app.post('/api/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('Error logging out:', err);
+            return res.status(500).send('Error logging out');
+        }
+        res.status(200).send('Logged out');
     });
-};
+});
 
-// Protected route example
-app.get('/api/protected', verifyJWT, (req, res) => {
-    res.status(200).send('This is a protected route');
+app.get('/api/checkSession', (req, res) => {
+    if (req.session.user) {
+        res.json({ username: req.session.user.username });
+    } else {
+        res.status(401).json({ error: 'Not logged in' });
+    }
 });
 
 // Start the server

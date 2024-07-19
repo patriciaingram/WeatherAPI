@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Search</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="navbar">
+        <div>
+            <a href="/">Home</a>
+        </div>
+        <div>
+            <span id="username"></span>
+            <button id="logout" class="logout-button">Logout</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Weather Search</h1>
+        <form id="weatherForm">
+            <label for="city">Enter City:</label>
+            <input type="text" id="city" name="city" required>
+            <button type="submit">Search Weather</button>
+        </form>
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Fetch and display username
+            fetch('/api/checkSession')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.username) {
+                        document.getElementById('username').textContent = `Logged in as: ${data.username}`;
+                    } else {
+                        window.location.href = '/login';
+                    }
+                })
+                .catch(err => {
+                    console.error('Error fetching session:', err);
+                    window.location.href = '/login';
+                });
+
+            // Handle the weather search form
+            document.getElementById('weatherForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const city = document.getElementById('city').value;
+
+                fetch(`/api/weather?city=${city}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('result').innerHTML = `
+                            <h2>Weather in ${data.name}</h2>
+                            <p>Temperature: ${Math.round(data.main.temp - 273.15)}°C (${Math.round((data.main.temp - 273.15) * 9/5 + 32)}°F)</p>
+                            <p>Weather: ${data.weather[0].description}</p>
+                        `;
+                    })
+                    .catch(err => {
+                        console.error('Error fetching weather data:', err);
+                        document.getElementById('result').innerHTML = 'Error fetching weather data.';
+                    });
+            });
+
+            // Handle the logout button
+            document.getElementById('logout').addEventListener('click', () => {
+                fetch('/api/logout', {
+                    method: 'POST'
+                })
+                .then(() => {
+                    window.location.href = '/';
+                })
+                .catch(err => {
+                    console.error('Error logging out:', err);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
