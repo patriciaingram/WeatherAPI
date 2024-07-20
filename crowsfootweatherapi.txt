@@ -1,0 +1,34 @@
++---------------------+
+|        User         |
++---------------------+
+| PK  UserID          |
+|     Username        |
+|     Password        |
+|     Email           |
++---------------------+
+         |
+         | 1
+         |
+         | 0..*
++---------------------+
+|   WeatherSearch     |
++---------------------+
+| PK  SearchID        |
+| FK  UserID          |
+|     Location        |
+|     TemperatureC    |
+|     TemperatureF    |
+|     SearchDate      |
++---------------------+
+
+
+Database logs:
+
+UserID | Username | Password | Email
+-------------------------------------
+1      | alice    | pass123  | alice@example.com
+
+
+SearchID | UserID | Location | TemperatureC | TemperatureF | SearchDate
+-------------------------------------------------------------------------
+1        | 1      | London   | 15.0          | 59.0          | 2024-07-20
