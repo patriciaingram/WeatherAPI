@@ -45,7 +45,7 @@
                 if (response.ok) {
                     alert('Login successful');
                     localStorage.setItem('token', data.token);
-                    window.location.href = '/';  // Redirect to the homepage
+                    window.location.href = '/weather.html';  // Redirect to the weather page
                 } else {
                     alert(data.message || 'Login failed');
                 }

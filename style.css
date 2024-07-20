@@ -58,3 +58,42 @@ button {
 button:hover {
     background-color: #0056b3;
 }
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    background-color: #333;
+    padding: 1rem;
+}
+
+.navbar a, .navbar button {
+    color: white;
+    text-decoration: none;
+    margin: 0 0.5rem;
+}
+
+.navbar button {
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.container {
+    text-align: center;
+    padding: 5rem 1rem;
+    background-image: url('/path/to/your/background.jpg'); /* Replace with your background image path */
+    background-size: cover;
+    background-position: center;
+    height: 100vh;
+}
+
+h1 {
+    font-family: 'Roboto', sans-serif;
+    font-size: 4rem;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
